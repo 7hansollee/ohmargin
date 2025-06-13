@@ -16,28 +16,6 @@ export function Footer() {
             </p>
           </div>
 
-          {/* 빠른 링크 */}
-          <div>
-            <h4 className="text-lg font-semibold mb-4">바로가기</h4>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/" className="text-neutral-600 hover:text-neutral-900 transition-colors">
-                  홈
-                </Link>
-              </li>
-              <li>
-                <Link href="/about" className="text-neutral-600 hover:text-neutral-900 transition-colors">
-                  소개
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-neutral-600 hover:text-neutral-900 transition-colors">
-                  문의하기
-                </Link>
-              </li>
-            </ul>
-          </div>
-
           {/* 법적 정보 */}
           <div>
             <h4 className="text-lg font-semibold mb-4">법적 정보</h4>
