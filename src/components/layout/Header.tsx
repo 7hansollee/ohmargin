@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Menu } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import {
   Dialog,
@@ -18,12 +18,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useState } from 'react';
+import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
 
 export function Header() {
   const router = useRouter();
   const { user, signOut, loading } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [showMembershipDialog, setShowMembershipDialog] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -37,36 +39,19 @@ export function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm border-b">
-      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center">
-        {/* 로고와 계산기 메뉴 */}
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center">
-            <span className="text-2xl font-bold text-[#3182f6]">Oh! 마진</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/calculator/margin"
-              className="text-neutral-600 hover:text-neutral-900 transition-colors"
-            >
-              상품 마진 계산기
-            </Link>
-            <Link
-              href="/calculator/income"
-              className="text-neutral-600 hover:text-neutral-900 transition-colors"
-            >
-              월수입 계산기
-            </Link>
-          </div>
+      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        {/* 로고 */}
+        <Link href="/" className="flex items-center">
+          <span className="text-2xl font-bold text-[#3182f6]">Oh! 마진</span>
+        </Link>
+        {/* PC 네비게이션 */}
+        <div className="hidden md:flex items-center gap-8 flex-1 ml-8">
+          <Link href="/calculator/margin" className="text-neutral-600 hover:text-neutral-900 transition-colors">상품 마진 계산기</Link>
+          <Link href="/calculator/income" className="text-neutral-600 hover:text-neutral-900 transition-colors">월수입 계산기</Link>
+          <button onClick={() => setShowMembershipDialog(true)} className="text-neutral-600 hover:text-neutral-900 transition-colors">멤버십</button>
         </div>
-
-        {/* 네비게이션 메뉴 */}
-        <nav className="flex items-center gap-6 ml-auto">
-          <button
-            onClick={() => setShowMembershipDialog(true)}
-            className="text-neutral-600 hover:text-neutral-900 transition-colors"
-          >
-            멤버십
-          </button>
+        {/* PC 유저 메뉴 */}
+        <nav className="hidden md:flex items-center gap-6 ml-auto">
           {user ? (
             <div className="flex items-center gap-4">
               <DropdownMenu onOpenChange={setIsOpen}>
@@ -107,6 +92,35 @@ export function Header() {
             </div>
           )}
         </nav>
+        {/* 모바일 햄버거 메뉴 */}
+        <div className="md:hidden flex items-center ml-auto">
+          <button onClick={() => setMobileNavOpen(true)} className="p-2 rounded-md text-[#3182f6] focus:outline-none focus:ring-2 focus:ring-blue-200">
+            <Menu className="w-7 h-7" />
+            <span className="sr-only">메뉴 열기</span>
+          </button>
+        </div>
+        {/* 모바일 드로어 네비게이션 */}
+        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <SheetContent side="right" className="p-0 w-64">
+            <SheetHeader className="p-4 border-b">
+              <span className="text-xl font-bold text-[#3182f6]">Oh! 마진</span>
+            </SheetHeader>
+            <nav className="flex flex-col gap-2 p-4">
+              <Link href="/calculator/margin" className="py-3 px-2 text-base text-neutral-700 hover:bg-blue-50 rounded-lg" onClick={() => setMobileNavOpen(false)}>상품 마진 계산기</Link>
+              <Link href="/calculator/income" className="py-3 px-2 text-base text-neutral-700 hover:bg-blue-50 rounded-lg" onClick={() => setMobileNavOpen(false)}>월수입 계산기</Link>
+              <button onClick={() => { setShowMembershipDialog(true); setMobileNavOpen(false); }} className="py-3 px-2 text-base text-neutral-700 hover:bg-blue-50 rounded-lg text-left">멤버십</button>
+              {/* 로그인/유저 메뉴 */}
+              {user ? (
+                <>
+                  <Link href="/profile" className="py-3 px-2 text-base text-neutral-700 hover:bg-blue-50 rounded-lg" onClick={() => setMobileNavOpen(false)}>프로필</Link>
+                  <button onClick={() => { handleSignOut(); setMobileNavOpen(false); }} className="py-3 px-2 text-base text-neutral-700 hover:bg-blue-50 rounded-lg text-left">로그아웃</button>
+                </>
+              ) : (
+                <button onClick={() => { router.push('/auth/signin'); setMobileNavOpen(false); }} className="py-3 px-2 text-base text-[#3182f6] font-semibold hover:bg-blue-50 rounded-lg text-left">로그인</button>
+              )}
+            </nav>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <Dialog open={showMembershipDialog} onOpenChange={setShowMembershipDialog}>
