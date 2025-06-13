@@ -90,3 +90,35 @@ easynext sentry
 # Google Adsense
 easynext adsense
 ```
+
+## Google Analytics 사용법
+
+이 프로젝트는 Google Analytics(GA4)가 설정되어 있습니다. 측정 ID: `G-NH27P097X7`
+
+### 페이지 추적
+페이지 추적은 자동으로 설정되어 있습니다.
+
+### 이벤트 추적
+이벤트를 추적하려면 다음과 같이 사용하세요:
+
+```javascript
+import { event } from './app/gtag';
+
+// 이벤트 추적
+event({
+  action: '버튼_클릭',
+  category: '사용자_상호작용',
+  label: '로그인_버튼',
+  value: 1
+});
+```
+
+## Microsoft Clarity 사용법
+
+이 프로젝트는 Microsoft Clarity가 설정되어 있습니다. 프로젝트 ID: `rsnin45cgr`
+
+Microsoft Clarity는 사용자 행동 분석 도구로, 별도의 코드 없이 자동으로 사용자 세션을 기록하고 히트맵, 세션 재생 등의 기능을 제공합니다.
+
+Clarity 컴포넌트는 `src/third-parties/Clarity.tsx`에 위치하며, `layout.tsx`에 자동으로 추가되었습니다.
+
+자세한 내용은 [Microsoft Clarity 공식 문서](https://docs.microsoft.com/en-us/clarity/setup-and-installation/clarity-setup)를 참조하세요.

@@ -1,3 +1,7 @@
+import { ChannelIO } from '@/third-parties/Channelio';
+import Clarity from '@/third-parties/Clarity';
+import { GoogleAnalytics } from '@next/third-parties/google'
+import { GA_MEASUREMENT_ID } from './gtag';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
@@ -30,7 +34,14 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+      </head>
+      <ChannelIO />
       <body className="min-h-screen bg-background font-sans antialiased">
+    <Clarity />
+  {/* Google Analytics */}
+  <GoogleAnalytics gaId={GA_MEASUREMENT_ID} />
         <Providers>{children}</Providers>
         <Toaster />
       </body>

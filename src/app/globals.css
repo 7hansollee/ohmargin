@@ -3,6 +3,16 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* 모바일에서 더 나은 터치 영역 */
+  button, 
+  a {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;

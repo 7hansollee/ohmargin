@@ -59,13 +59,11 @@ export function Footer() {
           <div>
             <h4 className="text-lg font-semibold mb-4">연락처</h4>
             <ul className="space-y-2 text-neutral-600">
-              <li>이메일: contact@ohmargin.com</li>
-              <li>전화: 02-1234-5678</li>
-              <li>주소: 서울특별시 강남구</li>
+              <li>이메일: 7hansollee@naver.com</li>
+              <li>주소: 경기도 구리시</li>
             </ul>
           </div>
         </div>
-
         {/* 저작권 */}
         <div className="border-t border-neutral-200 mt-8 pt-8 text-center text-neutral-600">
           <p>&copy; {new Date().getFullYear()} 오마진. All rights reserved.</p>

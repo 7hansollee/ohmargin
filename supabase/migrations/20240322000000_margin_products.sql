@@ -4,6 +4,7 @@ create table if not exists public.margin_products (
   user_id uuid references auth.users on delete cascade not null,
   name text not null,
   margin integer not null,
+  margin_rate numeric not null,
   seller text not null,
   selling_price integer not null,
   shipping_fee integer not null,
@@ -59,3 +60,25 @@ drop trigger if exists on_margin_product_updated on public.margin_products;
 create trigger on_margin_product_updated
   before update on public.margin_products
   for each row execute procedure public.handle_margin_product_updated_at(); 
+
+-- 기존 테이블에 margin_rate 컬럼이 없는 경우 추가 (안전한 방법)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'margin_products' 
+        AND column_name = 'margin_rate'
+        AND table_schema = 'public'
+    ) THEN
+        ALTER TABLE public.margin_products 
+        ADD COLUMN margin_rate numeric NOT NULL DEFAULT 0;
+        
+        -- 기존 데이터에 대해 margin_rate 계산 및 업데이트
+        UPDATE public.margin_products 
+        SET margin_rate = CASE 
+            WHEN (selling_price + shipping_fee) > 0 
+            THEN ROUND((margin::numeric / (selling_price + shipping_fee)) * 100, 2)
+            ELSE 0 
+        END;
+    END IF;
+END $$; 

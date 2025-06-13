@@ -58,11 +58,68 @@ export default function IncomeCalculator() {
         if (error) throw error;
 
         if (data) {
+          console.log('Raw data from database:', data);
+          
+          // 판매처 매핑 함수
+          const getSellerFromCommission = (commissionRate: number) => {
+            const rate = Number(commissionRate);
+            
+            if (Math.abs(rate - 5.6) < 0.01) {
+              return '스마트스토어';
+            } else if (Math.abs(rate - 11.8) < 0.01 || Math.abs(rate - 11.88) < 0.01) {
+              return '쿠팡';
+            } else {
+              return '미지정';
+            }
+          };
+
+          // 🔥 기존 데이터베이스의 seller 필드를 업데이트
+          const updateSellerInDatabase = async () => {
+            const itemsToUpdate = data.filter(product => 
+              product.seller === '미지정' || product.seller === null || product.seller === undefined
+            );
+
+            console.log(`Found ${itemsToUpdate.length} items to update in database`);
+            
+            for (const product of itemsToUpdate) {
+              const newSeller = getSellerFromCommission(product.commission_rate);
+              if (newSeller !== '미지정') {
+                console.log(`Updating database: ${product.name} -> ${newSeller}`);
+                
+                const { error: updateError } = await supabase
+                  .from('margin_products')
+                  .update({ seller: newSeller })
+                  .eq('id', product.id)
+                  .eq('user_id', user.id);
+
+                if (updateError) {
+                  console.error(`Failed to update ${product.name}:`, updateError);
+                } else {
+                  console.log(`Successfully updated ${product.name} to ${newSeller}`);
+                  // 로컬 데이터도 업데이트
+                  product.seller = newSeller;
+                }
+              }
+            }
+
+            if (itemsToUpdate.length > 0) {
+              toast({
+                title: "판매처 정보 업데이트",
+                description: `${itemsToUpdate.length}개 상품의 판매처 정보가 업데이트되었습니다.`,
+              });
+            }
+          };
+
+          // 데이터베이스 업데이트 실행
+          await updateSellerInDatabase();
+
+          // 매핑된 상품들 생성
           const mappedProducts = data.map((product: any) => ({
             ...product,
             quantity: 0,
-            seller: product.seller || '미지정'
+            seller: product.seller || getSellerFromCommission(product.commission_rate)
           }));
+
           setProducts(mappedProducts);
         }
       } catch (error) {

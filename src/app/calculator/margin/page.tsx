@@ -7,7 +7,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { HelpCircle, Trash2, Calculator, AlertCircle } from 'lucide-react';
+import { HelpCircle, Trash2, Calculator, AlertCircle, ExternalLink } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -51,6 +51,9 @@ export default function MarginCalculator() {
   const [calculatorValue, setCalculatorValue] = useState<string>('');
   const [savedProducts, setSavedProducts] = useState<Array<{name: string, margin: number, seller: string}>>([]);
   const [calculatorFocused, setCalculatorFocused] = useState<boolean>(false);
+  const [userMemo, setUserMemo] = useState<string>('');
+  const [memoLoading, setMemoLoading] = useState<boolean>(false);
+  const [memoSaving, setMemoSaving] = useState<boolean>(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -67,6 +70,12 @@ export default function MarginCalculator() {
     const fetchProducts = async () => {
       try {
         const supabase = createClient();
+        console.log('Supabase client:', supabase); // 클라이언트 확인
+
+        // 현재 세션 확인
+        const { data: session } = await supabase.auth.getSession();
+        console.log('Current session:', session);
+
         const { data, error } = await supabase
           .from('margin_products')
           .select('*')
@@ -75,10 +84,24 @@ export default function MarginCalculator() {
 
         if (error) throw error;
         if (data) {
+          // 판매처 매핑 함수
+          const getSellerFromCommission = (commissionRate: number) => {
+            // 부동소수점 비교를 위해 더 견고한 방식 사용
+            const rate = Number(commissionRate);
+            
+            if (Math.abs(rate - 5.6) < 0.01) {
+              return '스마트스토어';
+            } else if (Math.abs(rate - 11.8) < 0.01 || Math.abs(rate - 11.88) < 0.01) {
+              return '쿠팡';
+            } else {
+              return '미지정';
+            }
+          };
+
           const mappedProducts = data.map((product: any) => ({
             ...product,
             quantity: 0,
-            seller: product.seller || '미지정'
+            seller: product.seller || getSellerFromCommission(product.commission_rate) || '미지정'
           }));
           setSavedProducts(mappedProducts);
         }
@@ -93,6 +116,45 @@ export default function MarginCalculator() {
     };
 
     fetchProducts();
+  }, [user, toast]);
+
+  // 사용자 메모를 불러오는 useEffect 추가
+  useEffect(() => {
+    if (!user) {
+      setUserMemo('');
+      return;
+    }
+
+    const fetchUserMemo = async () => {
+      try {
+        setMemoLoading(true);
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('user_memos')
+          .select('memo_content')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116은 데이터가 없을 때 발생
+          throw error;
+        }
+        
+        if (data) {
+          setUserMemo(data.memo_content);
+        }
+      } catch (error) {
+        console.error('Error fetching user memo:', error);
+        toast({
+          title: "메모 로딩 실패",
+          description: "메모를 불러오는데 실패했습니다.",
+          variant: "destructive",
+        });
+      } finally {
+        setMemoLoading(false);
+      }
+    };
+
+    fetchUserMemo();
   }, [user, toast]);
 
   const handleProductNameChange = (value: string) => {
@@ -186,6 +248,9 @@ export default function MarginCalculator() {
   };
 
   const handleSaveProduct = async () => {
+    console.log('User object:', user); // 사용자 객체 확인
+    console.log('User ID:', user?.id); // 사용자 ID 확인
+    
     if (!user) {
       toast({
         title: "로그인이 필요합니다",
@@ -215,27 +280,46 @@ export default function MarginCalculator() {
 
     try {
       const supabase = createClient();
+      
+      // 판매처 매핑 - commission 값에 따라 판매처 이름 결정
+      const getSellerName = (commissionValue: string | undefined) => {
+        if (!commissionValue) return '미지정';
+        
+        switch(commissionValue) {
+          case '5.6':
+            return '스마트스토어';
+          case '11.8':
+          case '11.88':
+            return '쿠팡';
+          default:
+            return '미지정';
+        }
+      };
+      
+      // 삽입할 데이터 로그 출력
+      const insertData = {
+        user_id: user.id,
+        name: productName.trim(),
+        selling_price: Number(sellingPrice) || 0,
+        shipping_fee: Number(shippingFee) || 0,
+        purchase_price: Number(purchasePrice) || 0,
+        purchase_shipping_fee: Number(purchaseShippingFee) || 0,
+        extra_cost: Number(extraCost) || 0,
+        delivery_fee: Number(deliveryFee) || 0,
+        commission_rate: Number(commission) || 0,
+        vat_rate: Number(vat) || 0,
+        margin: margin,
+        margin_rate: marginRate || 0,
+        category: category,
+        memo: memo.trim(),
+        seller: getSellerName(commission)
+      };
+      
+      console.log('Insert data:', insertData); // 삽입할 데이터 확인
+      
       const { error } = await supabase
         .from('margin_products')
-        .insert([
-          {
-            user_id: user.id,
-            name: productName.trim(),
-            selling_price: Number(sellingPrice) || 0,
-            shipping_fee: Number(shippingFee) || 0,
-            purchase_price: Number(purchasePrice) || 0,
-            purchase_shipping_fee: Number(purchaseShippingFee) || 0,
-            extra_cost: Number(extraCost) || 0,
-            delivery_fee: Number(deliveryFee) || 0,
-            commission: Number(commission) || 0,
-            vat: Number(vat) || 0,
-            margin: margin,
-            margin_rate: marginRate || 0,
-            category: category,
-            memo: memo.trim(),
-            seller: '미지정'
-          }
-        ]);
+        .insert([insertData]);
 
       if (error) throw error;
 
@@ -254,17 +338,40 @@ export default function MarginCalculator() {
 
       if (fetchError) throw fetchError;
       if (newData) {
+        // 판매처 매핑 함수
+        const getSellerFromCommission = (commissionRate: number) => {
+          // 부동소수점 비교를 위해 더 견고한 방식 사용
+          const rate = Number(commissionRate);
+          
+          if (Math.abs(rate - 5.6) < 0.01) {
+            return '스마트스토어';
+          } else if (Math.abs(rate - 11.8) < 0.01 || Math.abs(rate - 11.88) < 0.01) {
+            return '쿠팡';
+          } else {
+            return '미지정';
+          }
+        };
+
         const mappedProducts = newData.map((product: any) => ({
           ...product,
           quantity: 0,
-          seller: product.seller || '미지정'
+          seller: product.seller || getSellerFromCommission(product.commission_rate) || '미지정'
         }));
         setSavedProducts(mappedProducts);
       }
 
     } catch (error: any) {
       console.error('Error saving product:', error);
-      if (error.code === '23505') {
+      console.error('Error details:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        statusCode: error?.status,
+        statusText: error?.statusText
+      });
+      
+      if (error?.code === '23505') {
         toast({
           title: "중복 오류",
           description: "이미 존재하는 상품명입니다.",
@@ -273,7 +380,7 @@ export default function MarginCalculator() {
       } else {
         toast({
           title: "저장 실패",
-          description: "상품 저장에 실패했습니다.",
+          description: error?.message || "상품 저장에 실패했습니다.",
           variant: "destructive",
         });
       }
@@ -385,6 +492,70 @@ export default function MarginCalculator() {
       window.removeEventListener('keydown', handleKeyPress);
     };
   }, [calculatorFocused, calculatorValue]);
+
+  // 메모 저장 함수
+  const handleSaveMemo = async () => {
+    if (!user) {
+      toast({
+        title: "로그인이 필요합니다",
+        description: "메모를 저장하려면 로그인이 필요합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setMemoSaving(true);
+      const supabase = createClient();
+      
+      // 메모가 비어있거나 공백만 있는 경우 레코드 삭제
+      if (!userMemo.trim()) {
+        const { error } = await supabase
+          .from('user_memos')
+          .delete()
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "메모 삭제 완료",
+          description: "메모가 삭제되었습니다.",
+          variant: "default",
+        });
+      } else {
+        // 메모가 있는 경우 UPSERT로 저장
+        const { error } = await supabase
+          .from('user_memos')
+          .upsert(
+            {
+              user_id: user.id,
+              memo_content: userMemo.trim()
+            },
+            {
+              onConflict: 'user_id'
+            }
+          );
+
+        if (error) throw error;
+
+        toast({
+          title: "메모 저장 완료",
+          description: "메모가 성공적으로 저장되었습니다.",
+          variant: "default",
+        });
+      }
+
+    } catch (error: any) {
+      console.error('Error saving memo:', error);
+      toast({
+        title: "메모 저장 실패",
+        description: error?.message || "메모 저장에 실패했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setMemoSaving(false);
+    }
+  };
 
   if (loading) {
     return <OhMarginLoading />;
@@ -623,7 +794,20 @@ export default function MarginCalculator() {
                 </div>
 
                 <div className="space-y-4">
-                  <h2 className="text-xl font-semibold">수수료</h2>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold">수수료</h2>
+                    {calculationMode === 'accurate' && (
+                      <a
+                        href="https://cloud.mkt.coupang.com/Fee-Table"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 rounded-lg border border-blue-200 hover:border-blue-300 transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md group"
+                      >
+                        <span>[쿠팡] 상품 카테고리를 잘 모르겠다면?</span>
+                        <ExternalLink className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                      </a>
+                    )}
+                  </div>
                   <div className="space-y-4">
                     <div className="flex gap-4">
                       <Button
@@ -667,7 +851,7 @@ export default function MarginCalculator() {
                               {calculationMode === 'quick' && commission === '5.6' && '스마트스토어'}
                               {calculationMode === 'quick' && commission === '11.88' && '쿠팡'}
                               {calculationMode === 'accurate' && commission === '5.6' && '스마트스토어'}
-                              {calculationMode === 'accurate' && commission === '11.8' && '쿠팡'}
+                              {calculationMode === 'accurate' && (commission === '11.8' || commission === '11.88') && '쿠팡'}
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent className="bg-white">
@@ -772,7 +956,19 @@ export default function MarginCalculator() {
               {/* 결과 카드 */}
               <Card className="bg-white">
                 <CardHeader>
-                  <CardTitle>계산 결과</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <span>계산 결과</span>
+                    <TooltipProvider>
+                      <Tooltip delayDuration={0}>
+                        <TooltipTrigger>
+                          <HelpCircle className="w-4 h-4 text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="bg-white/95">
+                          <p>계산된 마진이 표시됩니다<br />상품 저장하기 버튼을 누르시고<br />상단에 월수입 계산기 페이지로 이동하세요.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -810,7 +1006,19 @@ export default function MarginCalculator() {
               {/* 계산기 */}
               <Card className="bg-white">
                 <CardHeader>
-                  <CardTitle>계산기</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <span>계산기</span>
+                    <TooltipProvider>
+                      <Tooltip delayDuration={0}>
+                        <TooltipTrigger>
+                          <HelpCircle className="w-4 h-4 text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="bg-white/95">
+                          <p>키보드 입력이 지원되는 계산기 입니다.<br />계산이 필요할 경우 사용하세요</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -859,6 +1067,59 @@ export default function MarginCalculator() {
                         </Button>
                       ))}
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 메모장 */}
+              <Card className="bg-white">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span>포장 비용 메모장</span>
+                      <TooltipProvider>
+                        <Tooltip delayDuration={0}>
+                          <TooltipTrigger>
+                            <HelpCircle className="w-4 h-4 text-gray-400" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="bg-white/95">
+                            <p>포장 관련 비용이나 메모를<br />자유롭게 기록할 수 있습니다</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    {!user && (
+                      <span className="text-sm text-gray-500 font-normal">로그인 필요</span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {!user ? (
+                      <div className="flex items-center gap-2 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                        <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                        <p className="text-sm text-blue-700">
+                          메모장 기능은 로그인한 회원만 이용할 수 있습니다.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <Textarea
+                          placeholder="여기에 메모를 입력하세요..."
+                          value={userMemo}
+                          onChange={(e) => setUserMemo(e.target.value)}
+                          className="min-h-[200px] resize-none"
+                          disabled={memoLoading}
+                        />
+                        <Button
+                          onClick={handleSaveMemo}
+                          className="w-full bg-[#3182f6]/70 hover:bg-[#3182f6] active:scale-95 text-white transition-all duration-200 ease-in-out"
+                          disabled={memoSaving || memoLoading}
+                        >
+                          {memoSaving ? '저장 중...' : '메모 저장하기'}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>
