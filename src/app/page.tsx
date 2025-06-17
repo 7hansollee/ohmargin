@@ -4,7 +4,7 @@ import { HeroSection } from '@/components/home/HeroSection'
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex flex-col">
       <Header />
       <HeroSection />
       <Footer />

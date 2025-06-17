@@ -7,9 +7,9 @@ export function HeroSection() {
   const router = useRouter();
 
   return (
-    <section className="relative flex flex-col items-start justify-start pt-32 min-h-[900px] w-full overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <section className="relative flex flex-col items-center justify-center pt-14 md:pt-32 min-h-[600px] md:min-h-[900px] w-full overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 md:items-start md:justify-start">
       {/* 배경 계산기 이미지들 - 포개진 레이어 */}
-      <div className="absolute inset-0 flex justify-end items-center pr-16 translate-y-4">
+      <div className="absolute inset-0 flex justify-center items-center pr-0 md:justify-end md:pr-16 translate-y-4">
         {/* 첫 번째 이미지 - 뒷배경 (hero3.png - 월수입 계산기) */}
         <div className="relative transform rotate-3 scale-100">
           <div className="relative">
@@ -27,7 +27,7 @@ export function HeroSection() {
         </div>
 
         {/* 두 번째 이미지 - 앞배경 (hero4.png - 상품 마진 계산기) */}
-        <div className="absolute transform -rotate-2 scale-125 -translate-x-40 translate-y-12">
+        <div className="absolute transform -rotate-2 scale-125 -translate-x-0 translate-y-12 md:-translate-x-40">
           <div className="relative">
             <Image
               src="/images/hero4.png"
@@ -54,8 +54,8 @@ export function HeroSection() {
       <div className="absolute top-1/3 right-1/3 w-18 h-18 bg-purple-300/25 rounded-full blur-lg"></div>
 
       {/* 메인 텍스트 콘텐츠 */}
-      <div className="relative z-20 text-center md:text-left space-y-6 px-4 md:px-6 md:pl-32 md:ml-6 max-w-3xl mt-8 md:mt-16">
-        <div className="space-y-6">
+      <div className="relative z-20 text-center space-y-4 md:space-y-6 px-4 max-w-3xl mt-4 md:mt-8 md:text-left md:px-6 md:pl-32 md:ml-6 md:mt-16">
+        <div className="space-y-4 md:space-y-6">
           <div className="inline-block">
             <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-[#3182f6] drop-shadow-lg leading-normal">
               더 이상 번거롭게<br />쇼핑몰 월수입 계산 🙅🏻
@@ -63,7 +63,7 @@ export function HeroSection() {
           </div>
         </div>
         
-        <div className="space-y-3">
+        <div className="space-y-2 md:space-y-3">
           <p className="text-lg md:text-xl lg:text-2xl xl:text-3xl text-gray-800 font-semibold leading-normal drop-shadow-sm">
             Oh! 마진으로 쉽고 빠르게
           </p>
@@ -73,7 +73,7 @@ export function HeroSection() {
         </div>
 
         {/* CTA 버튼들 */}
-        <div className="flex flex-col sm:flex-row gap-4 mt-8">
+        <div className="flex flex-col items-center sm:flex-row gap-4 mt-6 md:mt-8 md:items-start">
           <button 
             onClick={() => router.push('/calculator/margin')}
             className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
