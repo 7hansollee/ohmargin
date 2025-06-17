@@ -37,6 +37,22 @@ export function Header() {
     }
   };
 
+  const checkMobile = () => {
+    // 브라우저 환경 체크 강화
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
+    }
+    
+    try {
+      // User Agent 기반 모바일 감지
+      const userAgent = navigator.userAgent.toLowerCase();
+      // 나머지 코드...
+    } catch (error) {
+      console.warn('모바일 감지 중 오류:', error);
+      return false;
+    }
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm border-b">
       <div className="max-w-7xl mx-auto px-4 h-14 md:h-16 flex items-center">
