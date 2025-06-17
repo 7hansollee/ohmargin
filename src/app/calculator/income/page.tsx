@@ -39,21 +39,121 @@ export default function IncomeCalculator() {
   // 모바일 감지 추가
   const isMobile = useMobile();
 
+  const handleQuantityChange = (index: number, value: string) => {
+    if (!user) {
+      toast({
+        title: "로그인이 필요합니다",
+        description: "수량을 변경하려면 로그인이 필요합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const product = products[index];
+    const numericValue = parseInt(value.replace(/[^0-9]/g, '')) || 0;
+    
+    // 로컬 상태 즉시 업데이트 (UI 반응성)
+    setLocalQuantities(prev => ({
+      ...prev,
+      [product.id]: numericValue
+    }));
+
+    // 데이터베이스 업데이트 대기열에 추가 (debounced)
+    setQuantitiesToUpdate(prev => ({
+      ...prev,
+      [product.id]: numericValue
+    }));
+  };
+
+  const handleDeleteProduct = async (index: number) => {
+    if (!user) {
+      toast({
+        title: "로그인이 필요합니다",
+        description: "상품을 삭제하려면 로그인이 필요합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const productToDelete = products[index];
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('margin_products')
+        .delete()
+        .eq('id', productToDelete.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const newProducts = products.filter((_, i) => i !== index);
+      setProducts(newProducts);
+      
+      toast({
+        title: "상품이 삭제되었습니다",
+        description: "상품이 성공적으로 삭제되었습니다.",
+      });
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast({
+        title: "삭제 실패",
+        description: error instanceof Error 
+          ? error.message 
+          : "상품 삭제에 실패했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const formatNumber = (value: number) => {
+    return value.toLocaleString('ko-KR');
+  };
+
+  const formatInputValue = (productId: string, fieldId: string) => {
+    const value = localQuantities[productId] || 0;
+    if (!value) return '';
+    return focusedField === fieldId ? value.toString() : `${value}개`;
+  };
+
+  const updateQuantitiesInDatabase = async () => {
+    if (!user || Object.keys(quantitiesToUpdate).length === 0) {
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      const updates = Object.entries(quantitiesToUpdate).map(([productId, quantity]) => ({
+        id: productId,
+        quantity: quantity,
+        updated_at: new Date().toISOString()
+      }));
+
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('margin_products')
+          .update({ quantity: update.quantity })
+          .eq('id', update.id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error(`Failed to update quantity for product ${update.id}:`, error);
+        }
+      }
+
+      // 업데이트 완료 후 대기열 초기화
+      setQuantitiesToUpdate({});
+    } catch (error) {
+      console.error('Error updating quantities in database:', error);
+    }
+  };
+
   useEffect(() => {
     if (!authLoading) {
       setLoading(false);
     }
   }, [authLoading]);
-
-  // 로딩 중이거나 모바일 환경이면 적절한 컴포넌트 표시
-  if (loading) {
-    return <OhMarginLoading />;
-  }
-
-  // 모바일 환경이면 안내문구 표시
-  if (isMobile) {
-    return <MobileWarning />;
-  }
 
   useEffect(() => {
     if (!user) {
@@ -158,84 +258,6 @@ export default function IncomeCalculator() {
     setTotalIncome(total);
   }, [products, localQuantities]);
 
-  const handleQuantityChange = (index: number, value: string) => {
-    if (!user) {
-      toast({
-        title: "로그인이 필요합니다",
-        description: "수량을 변경하려면 로그인이 필요합니다.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const product = products[index];
-    const numericValue = parseInt(value.replace(/[^0-9]/g, '')) || 0;
-    
-    // 로컬 상태 즉시 업데이트 (UI 반응성)
-    setLocalQuantities(prev => ({
-      ...prev,
-      [product.id]: numericValue
-    }));
-
-    // 데이터베이스 업데이트 대기열에 추가 (debounced)
-    setQuantitiesToUpdate(prev => ({
-      ...prev,
-      [product.id]: numericValue
-    }));
-  };
-
-  const handleDeleteProduct = async (index: number) => {
-    if (!user) {
-      toast({
-        title: "로그인이 필요합니다",
-        description: "상품을 삭제하려면 로그인이 필요합니다.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const productToDelete = products[index];
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('margin_products')
-        .delete()
-        .eq('id', productToDelete.id)
-        .eq('user_id', user.id);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      const newProducts = products.filter((_, i) => i !== index);
-      setProducts(newProducts);
-      
-      toast({
-        title: "상품이 삭제되었습니다",
-        description: "상품이 성공적으로 삭제되었습니다.",
-      });
-    } catch (error) {
-      console.error('Error deleting product:', error);
-      toast({
-        title: "삭제 실패",
-        description: error instanceof Error 
-          ? error.message 
-          : "상품 삭제에 실패했습니다.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const formatNumber = (value: number) => {
-    return value.toLocaleString('ko-KR');
-  };
-
-  const formatInputValue = (productId: string, fieldId: string) => {
-    const value = localQuantities[productId] || 0;
-    if (!value) return '';
-    return focusedField === fieldId ? value.toString() : `${value}개`;
-  };
-
   // 수량 업데이트를 500ms 지연시킴
   useDebounce(
     () => {
@@ -247,56 +269,15 @@ export default function IncomeCalculator() {
     [quantitiesToUpdate]
   );
 
-  const updateQuantitiesInDatabase = async () => {
-    if (!user) return;
+  // 로딩 중이거나 모바일 환경이면 적절한 컴포넌트 표시
+  if (loading) {
+    return <OhMarginLoading />;
+  }
 
-    const updatePromises = Object.entries(quantitiesToUpdate).map(async ([productId, quantity]) => {
-      try {
-        const supabase = createClient();
-        const { error } = await supabase
-          .from('margin_products')
-          .update({ quantity })
-          .match({ 
-            id: productId,
-            user_id: user.id 
-          });
-
-        if (error) {
-          console.error('Supabase error details:', error);
-          throw new Error(`데이터베이스 업데이트 실패: ${error.message}`);
-        }
-
-        // 실제 products 상태도 업데이트
-        setProducts(prev => 
-          prev.map(product => 
-            product.id === productId 
-              ? { ...product, quantity } 
-              : product
-          )
-        );
-
-      } catch (error) {
-        console.error('Error updating quantity:', error);
-        toast({
-          title: "업데이트 실패",
-          description: error instanceof Error ? error.message : "수량 업데이트에 실패했습니다.",
-          variant: "destructive",
-        });
-      }
-    });
-
-    try {
-      await Promise.all(updatePromises);
-      setQuantitiesToUpdate({});
-      
-      toast({
-        title: "업데이트 성공",
-        description: "수량이 성공적으로 업데이트되었습니다.",
-      });
-    } catch (error) {
-      console.error('Error in batch update:', error);
-    }
-  };
+  // 모바일 환경이면 안내문구 표시
+  if (isMobile) {
+    return <MobileWarning />;
+  }
 
   return (
     <div className="min-h-[120vh] flex flex-col">

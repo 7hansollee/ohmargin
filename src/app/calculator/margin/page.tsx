@@ -60,134 +60,6 @@ export default function MarginCalculator() {
   // 모바일 감지 추가
   const isMobile = useMobile();
 
-  useEffect(() => {
-    if (!authLoading) {
-      setLoading(false);
-    }
-  }, [authLoading]);
-
-  // 로딩 중이거나 모바일 환경이면 적절한 컴포넌트 표시
-  if (loading) {
-    return <OhMarginLoading />;
-  }
-
-  // 모바일 환경이면 안내문구 표시
-  if (isMobile) {
-    return <MobileWarning />;
-  }
-
-  useEffect(() => {
-    if (!user) {
-      setSavedProducts([]);
-      return;
-    }
-
-    const fetchProducts = async () => {
-      try {
-        const supabase = createClient();
-        console.log('Supabase client:', supabase); // 클라이언트 확인
-
-        // 현재 세션 확인
-        const { data: session } = await supabase.auth.getSession();
-        console.log('Current session:', session);
-
-        const { data, error } = await supabase
-          .from('margin_products')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        if (data) {
-          // 판매처 매핑 함수
-          const getSellerFromCommission = (commissionRate: number) => {
-            // 부동소수점 비교를 위해 더 견고한 방식 사용
-            const rate = Number(commissionRate);
-            
-            if (Math.abs(rate - 5.6) < 0.01) {
-              return '스마트스토어';
-            } else if (Math.abs(rate - 11.8) < 0.01 || Math.abs(rate - 11.88) < 0.01) {
-              return '쿠팡';
-            } else {
-              return '미지정';
-            }
-          };
-
-          const mappedProducts = data.map((product: any) => ({
-            ...product,
-            quantity: 0,
-            seller: product.seller || getSellerFromCommission(product.commission_rate) || '미지정'
-          }));
-          setSavedProducts(mappedProducts);
-        }
-      } catch (error) {
-        console.error('Error fetching products:', error);
-        toast({
-          title: "데이터 로딩 실패",
-          description: "상품 데이터를 불러오는데 실패했습니다.",
-          variant: "destructive",
-        });
-      }
-    };
-
-    fetchProducts();
-  }, [user, toast]);
-
-  // 사용자 메모를 불러오는 useEffect 추가
-  useEffect(() => {
-    if (!user) {
-      setUserMemo('');
-      return;
-    }
-
-    const fetchUserMemo = async () => {
-      try {
-        setMemoLoading(true);
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from('user_memos')
-          .select('memo_content')
-          .eq('user_id', user.id)
-          .single();
-
-        if (error && error.code !== 'PGRST116') { // PGRST116은 데이터가 없을 때 발생
-          throw error;
-        }
-        
-        if (data) {
-          setUserMemo(data.memo_content);
-        }
-      } catch (error) {
-        console.error('Error fetching user memo:', error);
-        toast({
-          title: "메모 로딩 실패",
-          description: "메모를 불러오는데 실패했습니다.",
-          variant: "destructive",
-        });
-      } finally {
-        setMemoLoading(false);
-      }
-    };
-
-    fetchUserMemo();
-  }, [user, toast]);
-
-  const handleProductNameChange = (value: string) => {
-    setProductName(value);
-    
-    // 저장된 제품 중에서 일치하는 제품 찾기
-    const matchedProduct = savedProducts.find(product => product.name === value);
-    if (matchedProduct) {
-      setMargin(matchedProduct.margin);
-      // 마진율 계산 (판매가격이 있는 경우에만)
-      if (sellingPrice) {
-        const totalRevenue = Number(sellingPrice) + Number(shippingFee || 0);
-        const calculatedMarginRate = totalRevenue > 0 ? (matchedProduct.margin / totalRevenue) * 100 : 0;
-        setMarginRate(Number(calculatedMarginRate.toFixed(2)));
-      }
-    }
-  };
-
   const getCategoryCommission = (category: string | undefined) => {
     if (!category) return 0;
     
@@ -232,9 +104,21 @@ export default function MarginCalculator() {
     setMarginRate(Number(calculatedMarginRate.toFixed(2)));
   };
 
-  useEffect(() => {
-    calculateMargin();
-  }, [sellingPrice, shippingFee, purchasePrice, purchaseShippingFee, extraCost, deliveryFee, commission, vat, category, calculationMode]);
+  const handleProductNameChange = (value: string) => {
+    setProductName(value);
+    
+    // 저장된 제품 중에서 일치하는 제품 찾기
+    const matchedProduct = savedProducts.find(product => product.name === value);
+    if (matchedProduct) {
+      setMargin(matchedProduct.margin);
+      // 마진율 계산 (판매가격이 있는 경우에만)
+      if (sellingPrice) {
+        const totalRevenue = Number(sellingPrice) + Number(shippingFee || 0);
+        const calculatedMarginRate = totalRevenue > 0 ? (matchedProduct.margin / totalRevenue) * 100 : 0;
+        setMarginRate(Number(calculatedMarginRate.toFixed(2)));
+      }
+    }
+  };
 
   const handleInputChange = (value: string, setter: (value: string | undefined) => void) => {
     setter(value);
@@ -465,6 +349,154 @@ export default function MarginCalculator() {
     }, 200);
   };
 
+  const handleSaveMemo = async () => {
+    if (!user) {
+      toast({
+        title: "로그인이 필요합니다",
+        description: "메모를 저장하려면 로그인이 필요합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setMemoSaving(true);
+      const supabase = createClient();
+      
+      const { error } = await supabase
+        .from('user_memos')
+        .upsert({
+          user_id: user.id,
+          memo_content: userMemo,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "메모 저장 완료",
+        description: "메모가 성공적으로 저장되었습니다.",
+      });
+    } catch (error) {
+      console.error('Error saving memo:', error);
+      toast({
+        title: "메모 저장 실패",
+        description: "메모를 저장하는데 실패했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setMemoSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!authLoading) {
+      setLoading(false);
+    }
+  }, [authLoading]);
+
+  useEffect(() => {
+    if (!user) {
+      setSavedProducts([]);
+      return;
+    }
+
+    const fetchProducts = async () => {
+      try {
+        const supabase = createClient();
+        console.log('Supabase client:', supabase); // 클라이언트 확인
+
+        // 현재 세션 확인
+        const { data: session } = await supabase.auth.getSession();
+        console.log('Current session:', session);
+
+        const { data, error } = await supabase
+          .from('margin_products')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        if (data) {
+          // 판매처 매핑 함수
+          const getSellerFromCommission = (commissionRate: number) => {
+            // 부동소수점 비교를 위해 더 견고한 방식 사용
+            const rate = Number(commissionRate);
+            
+            if (Math.abs(rate - 5.6) < 0.01) {
+              return '스마트스토어';
+            } else if (Math.abs(rate - 11.8) < 0.01 || Math.abs(rate - 11.88) < 0.01) {
+              return '쿠팡';
+            } else {
+              return '미지정';
+            }
+          };
+
+          const mappedProducts = data.map((product: any) => ({
+            ...product,
+            quantity: 0,
+            seller: product.seller || getSellerFromCommission(product.commission_rate) || '미지정'
+          }));
+          setSavedProducts(mappedProducts);
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        toast({
+          title: "데이터 로딩 실패",
+          description: "상품 데이터를 불러오는데 실패했습니다.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchProducts();
+  }, [user, toast]);
+
+  // 사용자 메모를 불러오는 useEffect 추가
+  useEffect(() => {
+    if (!user) {
+      setUserMemo('');
+      return;
+    }
+
+    const fetchUserMemo = async () => {
+      try {
+        setMemoLoading(true);
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('user_memos')
+          .select('memo_content')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116은 데이터가 없을 때 발생
+          throw error;
+        }
+        
+        if (data) {
+          setUserMemo(data.memo_content);
+        }
+      } catch (error) {
+        console.error('Error fetching user memo:', error);
+        toast({
+          title: "메모 로딩 실패",
+          description: "메모를 불러오는데 실패했습니다.",
+          variant: "destructive",
+        });
+      } finally {
+        setMemoLoading(false);
+      }
+    };
+
+    fetchUserMemo();
+  }, [user, toast]);
+
+  useEffect(() => {
+    calculateMargin();
+  }, [sellingPrice, shippingFee, purchasePrice, purchaseShippingFee, extraCost, deliveryFee, commission, vat, category, calculationMode]);
+
   // 키보드 입력 처리
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
@@ -508,69 +540,15 @@ export default function MarginCalculator() {
     };
   }, [calculatorFocused, calculatorValue]);
 
-  // 메모 저장 함수
-  const handleSaveMemo = async () => {
-    if (!user) {
-      toast({
-        title: "로그인이 필요합니다",
-        description: "메모를 저장하려면 로그인이 필요합니다.",
-        variant: "destructive",
-      });
-      return;
-    }
+  // 로딩 중이거나 모바일 환경이면 적절한 컴포넌트 표시
+  if (loading) {
+    return <OhMarginLoading />;
+  }
 
-    try {
-      setMemoSaving(true);
-      const supabase = createClient();
-      
-      // 메모가 비어있거나 공백만 있는 경우 레코드 삭제
-      if (!userMemo.trim()) {
-        const { error } = await supabase
-          .from('user_memos')
-          .delete()
-          .eq('user_id', user.id);
-
-        if (error) throw error;
-
-        toast({
-          title: "메모 삭제 완료",
-          description: "메모가 삭제되었습니다.",
-          variant: "default",
-        });
-      } else {
-        // 메모가 있는 경우 UPSERT로 저장
-        const { error } = await supabase
-          .from('user_memos')
-          .upsert(
-            {
-              user_id: user.id,
-              memo_content: userMemo.trim()
-            },
-            {
-              onConflict: 'user_id'
-            }
-          );
-
-        if (error) throw error;
-
-        toast({
-          title: "메모 저장 완료",
-          description: "메모가 성공적으로 저장되었습니다.",
-          variant: "default",
-        });
-      }
-
-    } catch (error: any) {
-      console.error('Error saving memo:', error);
-      toast({
-        title: "메모 저장 실패",
-        description: error?.message || "메모 저장에 실패했습니다.",
-        variant: "destructive",
-      });
-    } finally {
-      setMemoSaving(false);
-    }
-  };
+  // 모바일 환경이면 안내문구 표시
+  if (isMobile) {
+    return <MobileWarning />;
+  }
 
   return (
     <div className="min-h-[120vh] flex flex-col">
