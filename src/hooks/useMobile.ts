@@ -4,9 +4,16 @@ import { useState, useEffect } from 'react';
 
 export function useMobile() {
   const [isMobile, setIsMobile] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
+    // 컴포넌트가 마운트되었음을 표시
+    setHasMounted(true);
+
     const checkMobile = () => {
+      // 브라우저 환경에서만 실행
+      if (typeof window === 'undefined') return false;
+      
       // User Agent 기반 모바일 감지
       const userAgent = navigator.userAgent.toLowerCase();
       const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
@@ -37,6 +44,11 @@ export function useMobile() {
       window.removeEventListener('resize', handleResize);
     };
   }, []);
+
+  // 마운트되기 전에는 항상 false 반환 (SSR 호환성)
+  if (!hasMounted) {
+    return false;
+  }
 
   return isMobile;
 } 

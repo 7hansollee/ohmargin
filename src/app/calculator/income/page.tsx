@@ -39,16 +39,21 @@ export default function IncomeCalculator() {
   // 모바일 감지 추가
   const isMobile = useMobile();
 
-  // 모바일 환경이면 안내문구 표시
-  if (isMobile) {
-    return <MobileWarning />;
-  }
-
   useEffect(() => {
     if (!authLoading) {
       setLoading(false);
     }
   }, [authLoading]);
+
+  // 로딩 중이거나 모바일 환경이면 적절한 컴포넌트 표시
+  if (loading) {
+    return <OhMarginLoading />;
+  }
+
+  // 모바일 환경이면 안내문구 표시
+  if (isMobile) {
+    return <MobileWarning />;
+  }
 
   useEffect(() => {
     if (!user) {
@@ -292,10 +297,6 @@ export default function IncomeCalculator() {
       console.error('Error in batch update:', error);
     }
   };
-
-  if (loading) {
-    return <OhMarginLoading />;
-  }
 
   return (
     <div className="min-h-[120vh] flex flex-col">
