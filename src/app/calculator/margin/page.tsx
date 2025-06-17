@@ -27,6 +27,8 @@ import { Textarea } from "@/components/ui/textarea";
 import OhMarginLoading from '@/components/ui/OhMarginLoading';
 import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
+import { useMobile } from '@/hooks/useMobile';
+import { MobileWarning } from '@/components/ui/MobileWarning';
 
 export default function MarginCalculator() {
   const router = useRouter();
@@ -54,6 +56,14 @@ export default function MarginCalculator() {
   const [userMemo, setUserMemo] = useState<string>('');
   const [memoLoading, setMemoLoading] = useState<boolean>(false);
   const [memoSaving, setMemoSaving] = useState<boolean>(false);
+
+  // 모바일 감지 추가
+  const isMobile = useMobile();
+
+  // 모바일 환경이면 안내문구 표시
+  if (isMobile) {
+    return <MobileWarning />;
+  }
 
   useEffect(() => {
     if (!authLoading) {
@@ -567,9 +577,9 @@ export default function MarginCalculator() {
       <main className="flex-1 container mx-auto px-4 py-16">
         <h1 className="text-3xl font-bold mb-8 text-center mt-12">상품 마진 계산기</h1>
         
-        <div className="flex justify-center gap-8">
+        <div className="flex flex-col items-center gap-8 lg:flex-row lg:justify-center">
           {/* 좌측: 마진 계산기 */}
-          <Card className="w-[450px]">
+          <Card className="w-full max-w-lg lg:w-[450px]">
             <CardHeader>
               <CardTitle>마진 계산</CardTitle>
             </CardHeader>
@@ -951,7 +961,7 @@ export default function MarginCalculator() {
           </Card>
 
           {/* 우측: 계산기와 메모장 */}
-          <div className="w-[450px]">
+          <div className="w-full max-w-lg lg:w-[450px]">
             <div className="sticky top-8 space-y-8">
               {/* 결과 카드 */}
               <Card className="bg-white">
